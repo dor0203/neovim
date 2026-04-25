@@ -4,22 +4,31 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
     nixvim.url = "github:nix-community/nixvim";
+    noob-nvim = {
+      url = "github:dor0203/nvim-noob";
+      flake = false;
+    };
   };
 
-  outputs = { nixvim, nixpkgs, ... }:
+  outputs = { nixvim, nixpkgs, noob-nvim, ... }@inputs:
     let
       nixvimModule = system: {
         inherit system;
-        module = {
+        module = {...}: {
           imports = [
             ./navigation/shortcut-hints.nix
             ./navigation/cmd-line.nix
             ./theme/notifications.nix
             ./theme/fonts.nix
+            ./theme/indentations.nix
             ./language/lsp.nix
             ./language/autocompletion.nix
+            ./navigation/cheatsheet.nix
           ];
           nixpkgs.config.allowUnfree = true;
+          _module.args = {
+            inherit inputs;
+          };
         };
       };
 
