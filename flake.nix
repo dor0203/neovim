@@ -18,13 +18,14 @@
           imports = [
             ./navigation/shortcut-hints.nix
             ./navigation/cmd-line.nix
-            ./theme/notifications.nix
-            ./theme/fonts.nix
-            ./theme/indentations.nix
+            ./theme.nix
+            ./interactions.nix
             ./language/lsp.nix
             ./language/autocompletion.nix
             ./navigation/cheatsheet.nix
           ];
+
+          opts.relativenumber = true;
           nixpkgs.config.allowUnfree = true;
           _module.args = {
             inherit inputs;

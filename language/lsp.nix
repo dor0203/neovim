@@ -68,7 +68,6 @@
       enable = true;
     };
 
-    trouble.enable = true;
     conform-nvim = {
       enable = true;
       settings.formatters_by_ft.nix = [ "nixfmt" ];
@@ -98,11 +97,7 @@
       action = {
         __raw = ''
           function()
-              vim.diagnostic.config({ virtual_text = true })
-
-              vim.defer_fn(function()
-                  vim.diagnostic.config({ virtual_text = false })
-              end, 2500)
+              vim.diagnostic.config({ virtual_text = not vim.diagnostic.config().virtual_text })
           end
         '';
       };
@@ -116,6 +111,10 @@
         end
       '';
       options.desc = "format buffer";
+    }
+    {
+      key = "<leader>xx";
+      action = "<cmd>Trouble diagnostics toggle<cr>";
     }
   ];
 }
