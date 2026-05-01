@@ -20,8 +20,7 @@
             ./navigation/cmd-line.nix
             ./theme.nix
             ./interactions.nix
-            ./language/lsp.nix
-            ./language/autocompletion.nix
+            ./language.nix
             ./navigation/cheatsheet.nix
           ];
 

@@ -1,4 +1,5 @@
-{lib, pkgs, ...}: let
+{ lib, pkgs, ... }:
+let
   diagnostics = {
     diagnostic.settings = {
       signs = true;
@@ -38,6 +39,7 @@
       }
     ];
   };
+
   lsp = {
     lsp = {
       inlayHints.enable = true;
@@ -50,6 +52,23 @@
         };
         lua_ls = {
           enable = true;
+          settings = {
+            telemetry = {
+              enable = false;
+            };
+            diagnostic.globals = [ "vim" ];
+            workspace = {
+              library = "${pkgs.neovim}/share/nvim/runtime";
+            };
+            checkThirdParty = false;
+            hints = {
+              enable = true;
+              arrayIndex = "enable";
+              setType = true;
+              paramName = "All";
+              paramType = true;
+            };
+          };
         };
         nixd = {
           enable = true;
@@ -88,15 +107,45 @@
       };
     };
   };
+
+  code_injection = {
+    plugins.otter.enable = true;
+
+    extraConfigLua = ''
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "nix",
+        callback = function()
+          require("otter").activate({ "lua" })
+        end,
+      })
+      -- different color for injected lua
+      vim.api.nvim_set_hl(0, "@string.nix", {
+        bg = "#1e2030",
+      })
+    '';
+  };
+
   formaters = {
     extraPackages = with pkgs; [
       nixfmt
+      stylua
     ];
 
     plugins = {
       conform-nvim = {
         enable = true;
-        settings.formatters_by_ft.nix = [ "nixfmt" ];
+        settings = {
+          formatters_by_ft.nix = [
+            "nixfmt"
+            "injected" # for otter injected lua
+          ];
+          formatters_by_ft.lua = [ "stylua" ];
+          formatters.injected.options = {
+            lang_to_ext = {
+              lua = "lua";
+            };
+          };
+        };
       };
     };
 
@@ -108,8 +157,65 @@
             require("conform").format({ async = true })
           end
         '';
-        options.desc = "format buffer";
+        options.desc = "format buffer or embedded block";
       }
     ];
   };
-in lib.mkMerge [lsp formaters diagnostics]
+
+  completion = {
+    plugins.cmp = {
+      enable = true;
+      settings = {
+        sources = [
+          { name = "nvim_lsp"; }
+          { name = "buffer"; }
+          { name = "path"; }
+          { name = "otter"; }
+        ];
+        mapping = {
+          "<C-Space>" = "cmp.mapping.complete()";
+          "<CR>" = "cmp.mapping.confirm({ select = true })";
+          "<Tab>" = "cmp.mapping.select_next_item()";
+          "<S-Tab>" = "cmp.mapping.select_prev_item()";
+        };
+      };
+    };
+    plugins.cmp-nvim-lsp.enable = true;
+    plugins.cmp-buffer.enable = true;
+    plugins.cmp-path.enable = true;
+
+    extraConfigLua = ''
+      vim.defer_fn(function()
+          local clients = vim.lsp.get_clients()
+          for _, c in ipairs(clients) do
+              print(c.name .. ': ' .. vim.inspect(c.capabilities.textDocument.completion.completionItem.snippetSupport))
+          end
+      end, 1000)
+    '';
+  };
+
+  parser = {
+    plugins = {
+      treesitter = {
+        enable = true;
+        settings = {
+          highlight = {
+            enable = true;
+          };
+          grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+            lua
+            nix
+          ];
+        };
+      };
+    };
+  };
+in
+lib.mkMerge [
+  lsp
+  code_injection
+  formaters
+  diagnostics
+  completion
+  parser
+]
