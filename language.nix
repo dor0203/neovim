@@ -112,15 +112,43 @@ let
     plugins.otter.enable = true;
 
     extraConfigLua = ''
-      vim.api.nvim_create_autocmd("FileType", {
+      local ns = vim.api.nvim_create_namespace("lua_injection_bg")
+
+      local function highlight_lua_injections(bufnr)
+        vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+        local parser = vim.treesitter.get_parser(bufnr, "nix")
+        if not parser then return end
+        parser:parse(true)
+        local lua_tree = parser:children()["lua"]
+        if not lua_tree then return end
+        for _, tree in ipairs(lua_tree:trees()) do
+          local root = tree:root()
+          local sr, sc, er, ec = root:range()
+          vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
+            end_row = er,
+            end_col = ec,
+            line_hl_group = "InjectedLua",
+            hl_eol = true,
+            priority = 50,
+          })
+        end
+      end
+
+      vim.api.nvim_set_hl(0, "InjectedLua", { bg = "#1e2030" })
+
+      vim.api.nvim_create_autocmd({ "FileType" }, {
         pattern = "nix",
-        callback = function()
+        callback = function(ev)
           require("otter").activate({ "lua" })
+          highlight_lua_injections(ev.buf)
+          vim.api.nvim_buf_attach(ev.buf, false, {
+            on_bytes = function()
+              vim.schedule(function()
+                highlight_lua_injections(ev.buf)
+              end)
+            end,
+          })
         end,
-      })
-      -- different color for injected lua
-      vim.api.nvim_set_hl(0, "@string.nix", {
-        bg = "#1e2030",
       })
     '';
   };
