@@ -3,10 +3,11 @@
     opts = {
       termguicolors = true;
     };
+    colorschemes.tokyonight.enable = true;
   };
   cursorline = {
     opts = {
-      cursorline = true;
+      cursorline = false;
     };
 
     extraConfigLua = ''

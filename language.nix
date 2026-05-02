@@ -52,11 +52,11 @@ let
         };
         lua_ls = {
           enable = true;
-          settings = {
+          config.settings.Lua = {
             telemetry = {
               enable = false;
             };
-            diagnostic.globals = [ "vim" ];
+            diagnostics.globals = [ "vim" ];
             workspace = {
               library = "${pkgs.neovim}/share/nvim/runtime";
             };
@@ -112,7 +112,8 @@ let
     plugins.otter.enable = true;
 
     extraConfigLua = ''
-      local ns = vim.api.nvim_create_namespace("lua_injection_bg")
+      local ns = vim.api.nvim_create_namespace("lua_injection")
+
 
       local function highlight_lua_injections(bufnr)
         vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
@@ -121,25 +122,63 @@ let
         parser:parse(true)
         local lua_tree = parser:children()["lua"]
         if not lua_tree then return end
+
         for _, tree in ipairs(lua_tree:trees()) do
           local root = tree:root()
           local sr, sc, er, ec = root:range()
           vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
-            end_row = er,
+            end_row = er - 1,
             end_col = ec,
-            line_hl_group = "InjectedLua",
+            line_hl_group = "InjectedLuaContent",
             hl_eol = true,
-            priority = 50,
+            priority = 0,
+          })
+        end
+
+        -- vertical lines
+        for _, tree in ipairs(lua_tree:trees()) do
+          local root = tree:root()
+          local sr, _, er, _ = root:range()
+
+          vim.api.nvim_buf_set_extmark(bufnr, ns, sr, 0, {
+            virt_lines_above = true,
+            virt_lines = {
+              {
+                { "── lua ", "InjectedLuaBorder" },
+                { string.rep("─", 8), "InjectedLuaBorder" },
+                { string.rep("─", vim.api.nvim_win_get_width(0) - 16), "InjectedLuaBorder"},
+              },
+            },
+          })
+          vim.api.nvim_buf_set_extmark(bufnr, ns, er-1, 0, {
+            virt_lines = {
+              {
+                { "─────", "InjectedLuaBorder" },
+                { string.rep("─", 8), "InjectedLuaBorder" },
+                { string.rep("─", vim.api.nvim_win_get_width(0) - 16), "InjectedLuaBorder" },
+              },
+            },
           })
         end
       end
 
-      vim.api.nvim_set_hl(0, "InjectedLua", { bg = "#1e2030" })
+      -- highlight content
+      vim.api.nvim_set_hl(0, "InjectedLuaContent", {bg = "#18141F", italic = true})
+      vim.api.nvim_set_hl(0, "InjectedLuaBorder", {bg = "#18141F", fg = "#808080", italic = true})
 
-      vim.api.nvim_create_autocmd({ "FileType" }, {
+      vim.api.nvim_create_autocmd("FileType", {
         pattern = "nix",
         callback = function(ev)
-          require("otter").activate({ "lua" })
+          vim.api.nvim_create_autocmd("LspAttach", {
+            buffer = ev.buf,
+            callback = function(args)
+              if not args.data or not args.data.client_id then return end
+              local client = vim.lsp.get_client_by_id(args.data.client_id)
+              if not client or client.name ~= "lua_ls" then return end
+              require("otter").activate({ "lua" }, true, true, nil, client)
+              return true
+            end,
+          })
           highlight_lua_injections(ev.buf)
           vim.api.nvim_buf_attach(ev.buf, false, {
             on_bytes = function()
