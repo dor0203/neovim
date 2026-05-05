@@ -30,7 +30,7 @@ let
         key = "<leader>d";
         action = {
           __raw = ''
-            function()
+          function()
                 vim.diagnostic.config({ virtual_text = not vim.diagnostic.config().virtual_text })
             end
           '';
@@ -110,10 +110,9 @@ let
 
   code_injection = {
     plugins.otter.enable = true;
-
     extraConfigLua = ''
       local ns = vim.api.nvim_create_namespace("lua_injection")
-
+      local borders = true
 
       local function highlight_lua_injections(bufnr)
         vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
@@ -123,48 +122,53 @@ let
         local lua_tree = parser:children()["lua"]
         if not lua_tree then return end
 
+        local win_width = vim.api.nvim_win_get_width(0)
         for _, tree in ipairs(lua_tree:trees()) do
           local root = tree:root()
           local sr, sc, er, ec = root:range()
-          vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
-            end_row = er - 1,
-            end_col = ec,
-            line_hl_group = "InjectedLuaContent",
-            hl_eol = true,
-            priority = 0,
-          })
-        end
+          local line_count = er - sr
 
-        -- vertical lines
-        for _, tree in ipairs(lua_tree:trees()) do
-          local root = tree:root()
-          local sr, _, er, _ = root:range()
+          if line_count > 2 then
+            vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
+              end_row = er - 1,
+              end_col = ec,
+              line_hl_group = "InjectedContent",
+              priority = 0,
+            })
 
-          vim.api.nvim_buf_set_extmark(bufnr, ns, sr, 0, {
-            virt_lines_above = true,
-            virt_lines = {
-              {
-                { "── lua ", "InjectedLuaBorder" },
-                { string.rep("─", 8), "InjectedLuaBorder" },
-                { string.rep("─", vim.api.nvim_win_get_width(0) - 16), "InjectedLuaBorder"},
+            if borders then
+              vim.api.nvim_buf_set_extmark(bufnr, ns, sr, 0, {
+              virt_lines_above = true,
+              virt_lines = {
+                {
+                  { " lua ", "InjectedBorderTitle" },
+                  { string.rep("─", win_width - 5), "InjectedBorder"},
+                },
               },
-            },
-          })
-          vim.api.nvim_buf_set_extmark(bufnr, ns, er-1, 0, {
-            virt_lines = {
-              {
-                { "─────", "InjectedLuaBorder" },
-                { string.rep("─", 8), "InjectedLuaBorder" },
-                { string.rep("─", vim.api.nvim_win_get_width(0) - 16), "InjectedLuaBorder" },
-              },
-            },
-          })
+            })
+              vim.api.nvim_buf_set_extmark(bufnr, ns, er-1, 0, {
+                virt_lines = {
+                  {
+                    { string.rep("─", win_width), "InjectedBorder" },
+                  },
+                },
+              })
+            end
+          else
+            vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
+              end_row = er,
+              end_col = ec,
+              hl_group = "InjectedInlineContent",
+              priority = 0,
+            })
+          end
         end
       end
 
-      -- highlight content
-      vim.api.nvim_set_hl(0, "InjectedLuaContent", {bg = "#18141F", italic = true})
-      vim.api.nvim_set_hl(0, "InjectedLuaBorder", {bg = "#18141F", fg = "#808080", italic = true})
+      vim.api.nvim_set_hl(0, "InjectedContent", {bg = "#111111", italic = true})
+      vim.api.nvim_set_hl(0, "InjectedInlineContent", {italic = true})
+      vim.api.nvim_set_hl(0, "InjectedBorder", {bg = "#111111", fg = "#808080", italic = true})
+      vim.api.nvim_set_hl(0, "InjectedBorderTitle", {bg = "#111111", fg = "#808080", italic = true})
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "nix",

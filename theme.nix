@@ -3,7 +3,7 @@
     opts = {
       termguicolors = true;
     };
-    colorschemes.tokyonight.enable = true;
+    colorschemes.moonfly.enable = true;
   };
   cursorline = {
     opts = {
@@ -39,6 +39,7 @@
 
     plugins.indent-blankline = {
       enable = true;
+      settings.scope.enabled = false;
     };
   };
 
