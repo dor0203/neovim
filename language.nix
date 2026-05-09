@@ -12,17 +12,11 @@ let
       {
         mode = "n";
         key = "K";
-        action = {
-          __raw = ''
-            function()
-                vim.diagnostic.open_float(nil, {
-                    focus = false,
-                    scope = "cursor",
-                    border = "none",
-                })
-            end
-          '';
-        };
+        action.__raw = ''
+          function()
+            vim.diagnostic.open_float(nil, { focus = false, scope = 'cursor', border = 'none' })
+          end
+        '';
         options.desc = "Show local diagnostic under cursor";
       }
       {
@@ -30,8 +24,8 @@ let
         key = "<leader>d";
         action = {
           __raw = ''
-          function()
-                vim.diagnostic.config({ virtual_text = not vim.diagnostic.config().virtual_text })
+            function()
+              vim.diagnostic.config({ virtual_text = not vim.diagnostic.config().virtual_text })
             end
           '';
         };
@@ -117,36 +111,44 @@ let
       local function highlight_lua_injections(bufnr)
         vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
         local parser = vim.treesitter.get_parser(bufnr, "nix")
-        if not parser then return end
+        if not parser then
+          return
+        end
         parser:parse(true)
         local lua_tree = parser:children()["lua"]
-        if not lua_tree then return end
+        if not lua_tree then
+          return
+        end
 
         local win_width = vim.api.nvim_win_get_width(0)
         for _, tree in ipairs(lua_tree:trees()) do
           local root = tree:root()
           local sr, sc, er, ec = root:range()
+          local line = vim.api.nvim_buf_get_lines(bufnr, er, er + 1, false)[1] or ""
+          ec = math.min(ec, #line)
+          local start_line = vim.api.nvim_buf_get_lines(bufnr, sr, sr + 1, false)[1] or ""
+          sc = math.min(sc, #start_line)
           local line_count = er - sr
 
-          if line_count > 2 then
+          if line_count > 0 then
             vim.api.nvim_buf_set_extmark(bufnr, ns, sr, sc, {
               end_row = er - 1,
-              end_col = ec,
+              end_col = 0,
               line_hl_group = "InjectedContent",
               priority = 0,
             })
 
             if borders then
               vim.api.nvim_buf_set_extmark(bufnr, ns, sr, 0, {
-              virt_lines_above = true,
-              virt_lines = {
-                {
-                  { " lua ", "InjectedBorderTitle" },
-                  { string.rep("─", win_width - 5), "InjectedBorder"},
+                virt_lines_above = true,
+                virt_lines = {
+                  {
+                    { " lua ", "InjectedBorderTitle" },
+                    { string.rep("─", win_width - 5), "InjectedBorder" },
+                  },
                 },
-              },
-            })
-              vim.api.nvim_buf_set_extmark(bufnr, ns, er-1, 0, {
+              })
+              vim.api.nvim_buf_set_extmark(bufnr, ns, er - 1, 0, {
                 virt_lines = {
                   {
                     { string.rep("─", win_width), "InjectedBorder" },
@@ -165,10 +167,17 @@ let
         end
       end
 
-      vim.api.nvim_set_hl(0, "InjectedContent", {bg = "#111111", italic = true})
-      vim.api.nvim_set_hl(0, "InjectedInlineContent", {italic = true})
-      vim.api.nvim_set_hl(0, "InjectedBorder", {bg = "#111111", fg = "#808080", italic = true})
-      vim.api.nvim_set_hl(0, "InjectedBorderTitle", {bg = "#111111", fg = "#808080", italic = true})
+      vim.api.nvim_set_hl(0, "InjectedContent", { bg = "#111111", italic = true })
+      vim.api.nvim_set_hl(0, "InjectedInlineContent", { italic = true })
+      vim.api.nvim_set_hl(0, "InjectedBorder", { bg = "#111111", fg = "#808080", italic = true })
+      vim.api.nvim_set_hl(0, "InjectedBorderTitle", { bg = "#111111", fg = "#808080", italic = true })
+
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "markdown",
+        callback = function()
+          require("otter").activate()
+        end,
+      })
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "nix",
@@ -176,9 +185,13 @@ let
           vim.api.nvim_create_autocmd("LspAttach", {
             buffer = ev.buf,
             callback = function(args)
-              if not args.data or not args.data.client_id then return end
+              if not args.data or not args.data.client_id then
+                return
+              end
               local client = vim.lsp.get_client_by_id(args.data.client_id)
-              if not client or client.name ~= "lua_ls" then return end
+              if not client or client.name ~= "lua_ls" then
+                return
+              end
               require("otter").activate({ "lua" }, true, true, nil, client)
               return true
             end,
@@ -211,9 +224,19 @@ let
             "injected" # for otter injected lua
           ];
           formatters_by_ft.lua = [ "stylua" ];
-          formatters.injected.options = {
-            lang_to_ext = {
-              lua = "lua";
+          formatters = {
+            injected.options = {
+              lang_to_ext = {
+                lua = "lua";
+              };
+            };
+            stylua = {
+              prepend_args = [
+                "--indent-type"
+                "Spaces"
+                "--indent-width"
+                "2"
+              ];
             };
           };
         };
@@ -257,10 +280,10 @@ let
 
     extraConfigLua = ''
       vim.defer_fn(function()
-          local clients = vim.lsp.get_clients()
-          for _, c in ipairs(clients) do
-              print(c.name .. ': ' .. vim.inspect(c.capabilities.textDocument.completion.completionItem.snippetSupport))
-          end
+        local clients = vim.lsp.get_clients()
+        for _, c in ipairs(clients) do
+          print(c.name .. ": " .. vim.inspect(c.capabilities.textDocument.completion.completionItem.snippetSupport))
+        end
       end, 1000)
     '';
   };

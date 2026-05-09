@@ -17,7 +17,6 @@
         module = {...}: {
           imports = [
             ./navigation/shortcut-hints.nix
-            ./navigation/cmd-line.nix
             ./theme.nix
             ./interactions.nix
             ./language.nix
